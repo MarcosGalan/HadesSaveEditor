@@ -1,8 +1,13 @@
-from datetime import datetime
 from typing import List, Optional
+
+import lz4.block
 
 from models.lua_state import LuaState
 from models.raw_save_file import RawSaveFile
+
+# Version 16 stores the lua_state as an LZ4 block-compressed blob.
+# The maximum uncompressed buffer size used by the game.
+_SAV16_UNCOMPRESSED_SIZE = 9388032
 
 
 class HadesSaveFile:
@@ -25,14 +30,13 @@ class HadesSaveFile:
         self.location = location
         self.runs = runs
         self.active_meta_points = active_meta_points
-        self.active_shrine_points = active_shrine_points
+        self.active_shrine_points = active_shrine_points 
         self.god_mode_enabled = god_mode_enabled
         self.hell_mode_enabled = hell_mode_enabled
         self.lua_keys = lua_keys
         self.current_map_name = current_map_name
         self.start_next_map = start_next_map
         self.lua_state = lua_state
-        self.timestamp = int(datetime.utcnow().timestamp())
 
         # Unusued, for debugging
         self.raw_save_file = raw_save_file
@@ -40,10 +44,13 @@ class HadesSaveFile:
     @classmethod
     def from_file(cls, path):
         raw_save_file = RawSaveFile.from_file(path)
-        lua_state = LuaState.from_bytes(
-            version=raw_save_file.version,
-            input_bytes=bytes(raw_save_file.lua_state_bytes)
-        )
+        lua_state_bytes = bytes(raw_save_file.lua_state_bytes)
+        if raw_save_file.version == 16:
+            lua_state_bytes = lz4.block.decompress(
+                lua_state_bytes,
+                uncompressed_size=_SAV16_UNCOMPRESSED_SIZE
+            )
+        lua_state = LuaState.from_bytes(lua_state_bytes)
 
         # Unused, for debugging
         lua_state.raw_save_file = raw_save_file
@@ -64,57 +71,37 @@ class HadesSaveFile:
         )
 
     def to_file(self, path):
-        if self.version == 14:
+        if self.version in (14, 16):
+            lua_state_bytes = self.lua_state.to_bytes()
+            if self.version == 16:
+                lua_state_bytes = lz4.block.compress(
+                    lua_state_bytes,
+                    store_size=False
+                )
+            save_data = {
+                'version': self.version,
+                'location': self.location,
+                'runs': self.runs,
+                'active_meta_points': self.active_meta_points,
+                'active_shrine_points': self.active_shrine_points,
+                'god_mode_enabled': self.god_mode_enabled,
+                'hell_mode_enabled': self.hell_mode_enabled,
+                'lua_keys': self.lua_keys,
+                'current_map_name': self.current_map_name,
+                'start_next_map': self.start_next_map,
+                'lua_state': lua_state_bytes,
+            }
+            if self.version == 16:
+                if self.raw_save_file and 'unknown1' in self.raw_save_file.save_data:
+                    save_data['unknown1'] = self.raw_save_file.save_data['unknown1']
+                    save_data['unknown2'] = self.raw_save_file.save_data['unknown2']
+                else:
+                    save_data['unknown1'] = 0
+                    save_data['unknown2'] = 0
+                    
             RawSaveFile(
-                version=14,
-                save_data={
-                    'version': self.version,
-                    'location': self.location,
-                    'runs': self.runs,
-                    'active_meta_points': self.active_meta_points,
-                    'active_shrine_points': self.active_shrine_points,
-                    'god_mode_enabled': self.god_mode_enabled,
-                    'hell_mode_enabled': self.hell_mode_enabled,
-                    'lua_keys': self.lua_keys,
-                    'current_map_name': self.current_map_name,
-                    'start_next_map': self.start_next_map,
-                    'lua_state': self.lua_state.to_bytes(),
-                }
-            ).to_file(path)
-        elif self.version == 15:
-            RawSaveFile(
-                version=15,
-                save_data={
-                    'version': self.version,
-                    'location': self.location,
-                    'runs': self.runs,
-                    'active_meta_points': self.active_meta_points,
-                    'active_shrine_points': self.active_shrine_points,
-                    'god_mode_enabled': self.god_mode_enabled,
-                    'hell_mode_enabled': self.hell_mode_enabled,
-                    'lua_keys': self.lua_keys,
-                    'current_map_name': self.current_map_name,
-                    'start_next_map': self.start_next_map,
-                    'lua_state': self.lua_state.to_bytes(),
-                }
-            ).to_file(path)
-        elif self.version == 16:
-            RawSaveFile(
-                version=16,
-                save_data={
-                    'version': self.version,
-                    'timestamp': self.timestamp,
-                    'location': self.location,
-                    'runs': self.runs,
-                    'active_meta_points': self.active_meta_points,
-                    'active_shrine_points': self.active_shrine_points,
-                    'god_mode_enabled': self.god_mode_enabled,
-                    'hell_mode_enabled': self.hell_mode_enabled,
-                    'lua_keys': self.lua_keys,
-                    'current_map_name': self.current_map_name,
-                    'start_next_map': self.start_next_map,
-                    'lua_state': self.lua_state.to_bytes(),
-                }
+                version=self.version,
+                save_data=save_data
             ).to_file(path)
         else:
             raise Exception(f"Unsupported version {self.version}")

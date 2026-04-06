@@ -1,7 +1,5 @@
-click
-construct
-luabins_py==1.4.0
 PyQt5
-pyinstaller
+construct
+luabins_py @ git+https://github.com/zsennenga/luabins_py.git
 lz4
-pywin32
+pyinstaller

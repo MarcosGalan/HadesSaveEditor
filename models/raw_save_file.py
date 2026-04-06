@@ -1,9 +1,8 @@
 from typing import Dict, Any
 
 from bin_utils import rpad_bytes
-from constant import SAVE_DATA_V14_LENGTH, SAVE_DATA_V15_LENGTH
+from constant import SAVE_DATA_V14_LENGTH
 from schemas.sav_14 import sav14_schema, sav14_save_data_schema
-from schemas.sav_15 import sav15_schema, sav15_save_data_schema
 from schemas.sav_16 import sav16_schema, sav16_save_data_schema
 from schemas.version_id import version_identifier_schema
 
@@ -26,8 +25,6 @@ class RawSaveFile:
 
             if version == 14:
                 parsed_schema = sav14_schema.parse(input_bytes)
-            elif version == 15:
-                parsed_schema = sav15_schema.parse(input_bytes)
             elif version == 16:
                 parsed_schema = sav16_schema.parse(input_bytes)
             else:
@@ -53,22 +50,8 @@ class RawSaveFile:
                 },
                 filename=path,
             )
-        elif self.version == 15:
-            sav15_schema.build_file(
-                {
-                    'save_data': {
-                        'data': rpad_bytes(
-                            sav15_save_data_schema.build(
-                                self.save_data
-                            ),
-                            SAVE_DATA_V15_LENGTH
-                        )
-                    }
-                },
-                filename=path,
-            )
         elif self.version == 16:
-            sav15_schema.build_file(
+            sav16_schema.build_file(
                 {
                     'save_data': {
                         'data': sav16_save_data_schema.build(

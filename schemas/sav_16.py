@@ -6,7 +6,8 @@ from constant import FILE_SIGNATURE
 
 sav16_save_data_schema = Struct(
     "version" / Int32ul,
-    "timestamp" / Int64ul,
+    "unknown1" / Int32ul,
+    "unknown2" / Int32ul,
     "location" / PascalString(Int32ul, "utf8"),
     "runs" / Int32ul,
     "active_meta_points" / Int32ul,
@@ -37,5 +38,4 @@ sav16_schema = Struct(
             this.save_data.data
         )
     )
-
 )

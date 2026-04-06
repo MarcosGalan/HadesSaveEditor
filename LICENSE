@@ -1,6 +1,10 @@
 MIT License
 
 Copyright (c) 2019 Zachary Ennenga
+Copyright (c) 2026 Marcos Galan (Fork / Updated Version)
+
+This software is a fork and modernization of the original Hades Save Editor by Zachary Ennenga, 
+re-engineered to support Version 16 save files and UI enhancements.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
