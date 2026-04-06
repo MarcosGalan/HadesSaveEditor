@@ -1516,45 +1516,17 @@ class HadesEditor(QMainWindow):
             QMessageBox.critical(self, "Error al guardar", str(e))
 
     def _max_all(self):
-        reply = QMessageBox.question(
-            self, "Maximizar Todo",
-            "¿Maximizar todos los recursos y desbloquear todas las armas y aspectos?",
-            QMessageBox.Yes | QMessageBox.No
-        )
-        if reply != QMessageBox.Yes:
-            return
-        for card in self._res.values():
-            card.set_value(99999)
-        for wc in self._weapon_cards:
-            wc._max_all()
-        self.chk_aspects.setChecked(True)
-        self.chk_gun.setChecked(True)
-        # Max NPC affinity
-        for spin in self._npc_spin.values():
-            spin.setValue(10)
-        # Unlock all flags
-        for chk in self._flag_checks.values():
-            chk.setChecked(True)
-        # Complete all quests
-        for chk in self._quest_checks.values():
-            chk.setChecked(True)
-        # Max mirror upgrades
-        for key, spin in self._mirror_spin.items():
-            spin.setValue(spin.maximum())
-        # Max keepsake uses
-        for spin in self._ks_spin.values():
-            spin.setValue(500)
-
+        pass  # merged below
 
     def _max_all(self):
         reply = QMessageBox.question(
             self, "Maximizar Todo",
-            "¿Maximizar todos los recursos y desbloquear todo?",
+            "¿Maximizar todos los recursos, desbloquear armas, aspectos ocultos, cosméticos y arcanas?",
             QMessageBox.Yes | QMessageBox.No
         )
         if reply != QMessageBox.Yes:
             return
-        
+
         is_h2 = self.game_toggle.isChecked()
         if is_h2:
             for card in self._res_h2.values():
@@ -1566,15 +1538,109 @@ class HadesEditor(QMainWindow):
             for chk in self._arcana_checks.values():
                 chk.setChecked(True)
         else:
+            # ─ Recursos
             for card in self._res.values():
                 card.set_value(99999)
+
+            # ─ Armas y aspectos (incluyendo el aspecto oculto 4)
             for wc in self._weapon_cards:
                 wc._max_all()
             self.chk_aspects.setChecked(True)
             self.chk_gun.setChecked(True)
-            for spin in self._npc_spin.values(): spin.setValue(10)
-            for chk in self._flag_checks.values(): chk.setChecked(True)
-            for chk in self._quest_checks.values(): chk.setChecked(True)
+
+            # ─ Afinidad NPCs (necesaria para aspectos ocultos)
+            for spin in self._npc_spin.values():
+                spin.setValue(10)
+
+            # ─ Flags (AspectsUnlocked etc)
+            for chk in self._flag_checks.values():
+                chk.setChecked(True)
+
+            # ─ Quests completadas
+            for chk in self._quest_checks.values():
+                chk.setChecked(True)
+
+            # ─ Espejo al máximo
+            for key, spin in self._mirror_spin.items():
+                spin.setValue(spin.maximum())
+
+            # ─ Recuerdos (keepsakes) al máximo
+            for spin in self._ks_spin.values():
+                spin.setValue(500)
+
+            # ─ Forzar desbloqueo de aspectos ocultos directamente en el GameState
+            # (sin necesidad de haber tenido las conversaciones previas)
+            if self.save_file:
+                gs = self.save_file.lua_state._active_state.setdefault("GameState", {})
+
+                # Flag global de aspectos (Nyx da la sangre de titán para aspectos)
+                flags = gs.setdefault("Flags", {})
+                flags["AspectsUnlocked"] = True
+
+                # Cada aspecto oculto (slot 4) se desbloquea con sangre de titán en WeaponUnlocks
+                # y con el Gift del NPC correspondiente
+                WEAPONS_H1 = ["SwordWeapon", "SpearWeapon", "ShieldWeapon",
+                               "BowWeapon", "FistWeapon", "GunWeapon"]
+                wul = gs.setdefault("WeaponUnlocks", {})
+                for wk in WEAPONS_H1:
+                    if wk not in wul:
+                        wul[wk] = {}
+                    # Asegurar slots 1-4 desbloqueados (slot 4 = aspecto oculto)
+                    for slot in [1.0, 2.0, 3.0, 4.0]:
+                        if slot not in wul[wk]:
+                            wul[wk][slot] = 1.0
+
+                # Gift de NPCs que habilitan los aspectos ocultos (mínimo valor 6 para
+                # activar el diálogo de revelación que el juego comprueba internamente)
+                ASPECT_GIFTS = [
+                    "NPC_Achilles_01", "NPC_Nyx_01", "NPC_Thanatos_01",
+                    "NPC_Charon_01", "NPC_Sisyphus_01",
+                ]
+                gift = gs.setdefault("Gift", {})
+                for npc in ASPECT_GIFTS:
+                    if npc not in gift or not isinstance(gift.get(npc), dict):
+                        gift[npc] = {"Value": 6.0, "NewTraits": {}}
+                    else:
+                        gift[npc]["Value"] = max(float(gift[npc].get("Value", 0)), 6.0)
+
+                # QuestStatus para WeaponAspects (sin esto el juego no muestra el aspecto)
+                quest = gs.setdefault("QuestStatus", {})
+                quest["WeaponAspects"] = "CashedOut"
+
+                # ─ Cosméticos de la tienda (todos los conocidos de Hades 1)
+                ALL_COSMETICS = [
+                    "Cosmetic_SouthHallTrimGrey", "Cosmetic_SouthHallTrimBrown",
+                    "Cosmetic_SouthHallTrimRed", "Cosmetic_SouthHallTrimPurple",
+                    "Cosmetic_DrapesBlue", "Cosmetic_DrapesRed",
+                    "Cosmetic_HouseCandles01", "Cosmetic_LaurelsRed",
+                    "Cosmetic_NorthHallCouch", "Cosmetic_SouthHallFlowers",
+                    "Cosmetic_SouthHallFlowersA", "Cosmetic_WallWeaponBident",
+                    "Cosmetic_ClearFur", "Cosmetic_UISkinDefault", "Cosmetic_MusicPlayer",
+                    "HouseCouch02A", "HouseLyre01", "HousePoster01",
+                    "HouseRug03B", "HouseWaterBowl01",
+                    "BreakableValue1", "BreakableValue2", "BreakableValue3",
+                    "ChallengeSwitches1", "ChallengeSwitches2",
+                    "OfficeDoorUnlockItem", "OrpheusUnlockItem", "FishingUnlockItem",
+                    "GhostAdminDesk", "PostBossGiftRack", "QuestLog",
+                    "HealthFountainHeal1", "HealthFountainHeal2",
+                    "TartarusReprieve", "AsphodelReprieve", "ElysiumReprieve",
+                    "CodexBoonList", "/Music/MusicPlayer/EurydiceSong1MusicPlayer",
+                    "/Music/MusicPlayer/MainThemeMusicPlayer",
+                    "/Music/MusicPlayer/MusicExploration4MusicPlayer",
+                ]
+                cosmetics     = gs.setdefault("Cosmetics", {})
+                cosmetics_add = gs.setdefault("CosmeticsAdded", {})
+                cosmetics_view = gs.setdefault("CosmeticsViewed", {})
+                for c in ALL_COSMETICS:
+                    cosmetics[c]      = "visible"
+                    cosmetics_add[c]  = True
+                    cosmetics_view[c] = True
+
+                QMessageBox.information(
+                    self, "✓ MAX aplicado",
+                    "Recursos, armas, aspectos ocultos y cosméticos maximizados.\n"
+                    "Guarda el archivo para aplicar los cambios."
+                )
 
     def _tab_resources_h2(self):
         scroll, inner = self._scroll_tab()
