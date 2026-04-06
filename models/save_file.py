@@ -5,9 +5,10 @@ import lz4.block
 from models.lua_state import LuaState
 from models.raw_save_file import RawSaveFile
 
-# Version 16 stores the lua_state as an LZ4 block-compressed blob.
+# Version 16 and 18 store the lua_state as an LZ4 block-compressed blob.
 # The maximum uncompressed buffer size used by the game.
 _SAV16_UNCOMPRESSED_SIZE = 9388032
+_SAV18_UNCOMPRESSED_SIZE = 40000000  # Hades 2 has a much larger state, allocate enough space
 
 
 class HadesSaveFile:
@@ -24,6 +25,8 @@ class HadesSaveFile:
             current_map_name: str,
             start_next_map: str,
             lua_state: LuaState,
+            grasp: int = 0,
+            unknown_int_2: int = 0,
             raw_save_file: Optional[RawSaveFile] = None
     ):
         self.version = version
@@ -37,6 +40,8 @@ class HadesSaveFile:
         self.current_map_name = current_map_name
         self.start_next_map = start_next_map
         self.lua_state = lua_state
+        self.grasp = grasp
+        self.unknown_int_2 = unknown_int_2
 
         # Unusued, for debugging
         self.raw_save_file = raw_save_file
@@ -49,6 +54,11 @@ class HadesSaveFile:
             lua_state_bytes = lz4.block.decompress(
                 lua_state_bytes,
                 uncompressed_size=_SAV16_UNCOMPRESSED_SIZE
+            )
+        elif raw_save_file.version == 18:
+            lua_state_bytes = lz4.block.decompress(
+                lua_state_bytes,
+                uncompressed_size=_SAV18_UNCOMPRESSED_SIZE
             )
         lua_state = LuaState.from_bytes(lua_state_bytes)
 
@@ -67,13 +77,15 @@ class HadesSaveFile:
             current_map_name=raw_save_file.save_data['current_map_name'],
             start_next_map=raw_save_file.save_data['start_next_map'],
             lua_state=lua_state,
+            grasp=raw_save_file.save_data.get('grasp', 0),
+            unknown_int_2=raw_save_file.save_data.get('unknown_int_2', 0),
             raw_save_file=raw_save_file
         )
 
     def to_file(self, path):
-        if self.version in (14, 16):
+        if self.version in (14, 16, 18):
             lua_state_bytes = self.lua_state.to_bytes()
-            if self.version == 16:
+            if self.version in (16, 18):
                 lua_state_bytes = lz4.block.compress(
                     lua_state_bytes,
                     store_size=False
@@ -91,7 +103,11 @@ class HadesSaveFile:
                 'start_next_map': self.start_next_map,
                 'lua_state': lua_state_bytes,
             }
-            if self.version == 16:
+            if self.version == 18:
+                save_data['grasp'] = self.grasp
+                save_data['unknown_int_2'] = self.unknown_int_2
+
+            if self.version in (16, 18):
                 if self.raw_save_file and 'unknown1' in self.raw_save_file.save_data:
                     save_data['unknown1'] = self.raw_save_file.save_data['unknown1']
                     save_data['unknown2'] = self.raw_save_file.save_data['unknown2']

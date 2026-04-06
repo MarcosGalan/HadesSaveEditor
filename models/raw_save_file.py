@@ -4,6 +4,7 @@ from bin_utils import rpad_bytes
 from constant import SAVE_DATA_V14_LENGTH
 from schemas.sav_14 import sav14_schema, sav14_save_data_schema
 from schemas.sav_16 import sav16_schema, sav16_save_data_schema
+from schemas.sav_18 import sav18_schema, sav18_save_data_schema
 from schemas.version_id import version_identifier_schema
 
 
@@ -27,6 +28,8 @@ class RawSaveFile:
                 parsed_schema = sav14_schema.parse(input_bytes)
             elif version == 16:
                 parsed_schema = sav16_schema.parse(input_bytes)
+            elif version == 18:
+                parsed_schema = sav18_schema.parse(input_bytes)
             else:
                 raise Exception(f"Unsupported version {version}")
 
@@ -55,6 +58,17 @@ class RawSaveFile:
                 {
                     'save_data': {
                         'data': sav16_save_data_schema.build(
+                            self.save_data
+                        )
+                    }
+                },
+                filename=path,
+            )
+        elif self.version == 18:
+            sav18_schema.build_file(
+                {
+                    'save_data': {
+                        'data': sav18_save_data_schema.build(
                             self.save_data
                         )
                     }

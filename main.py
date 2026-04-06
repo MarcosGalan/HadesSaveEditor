@@ -1,8 +1,8 @@
 import os
 import sys
 
-from PyQt5.QtCore import Qt, QPropertyAnimation, QEasingCurve, pyqtProperty, QRect, pyqtSignal
-from PyQt5.QtGui import QFont, QColor, QPainter, QPen, QBrush, QLinearGradient, QPalette
+from PyQt5.QtCore import Qt, QPropertyAnimation, QEasingCurve, pyqtProperty, QRect, pyqtSignal, QCoreApplication
+from PyQt5.QtGui import QFont, QColor, QPainter, QPen, QBrush, QLinearGradient, QPalette, QIcon
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QLabel, QPushButton, QLineEdit, QFileDialog, QMessageBox,
@@ -14,28 +14,37 @@ from models.save_file import HadesSaveFile
 
 
 # ── Palette ───────────────────────────────────────────────────────────────────
-BG_DARK   = "#0a0812"
-BG_PANEL  = "#13101e"
-BG_CARD   = "#1b1728"
-BG_INSET  = "#0f0c1a"
-GOLD      = "#e8a020"
-GOLD_DIM  = "#7a4e0a"
-GOLD_PALE = "#ffe0a0"
-ORANGE    = "#c0671a"
-RED       = "#b03022"
-TEXT      = "#ede6d6"
-TEXT_DIM  = "#7a7060"
-BORDER    = "#2e2840"
-BORDER_LT = "#4a3e60"
-GREEN     = "#2a8c50"
-BLUE      = "#3a6e9c"
+# ── Palette ───────────────────────────────────────────────────────────────────
+BG_DARK   = "#0b0b0e"
+BG_PANEL  = "#121216"
+BG_CARD   = "#18181d"
+BG_INSET  = "#08080a"
+GOLD      = "#cfa850"
+GOLD_DIM  = "#5c4b1a"
+GOLD_PALE = "#f1e3c0"
+ORANGE    = "#d07020"
+RED       = "#e64141"
+TEXT      = "#f0f0f2"
+TEXT_DIM  = "#a0a0b0"
+BORDER    = "#222228"
+BORDER_LT = "#33333c"
+GREEN     = "#34c759"
+BLUE      = "#007aff"
 
 QSS = f"""
 * {{
-    font-family: 'Segoe UI', 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif;
+    font-family: 'SF Pro Display', 'Inter', system-ui;
+    outline: none;
 }}
 QMainWindow, QDialog {{
     background-color: {BG_DARK};
+}}
+#mainWindowBackground {{
+    background-position: center;
+    background-repeat: no-repeat;
+}}
+#bgOverlay {{
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 rgba(11, 11, 14, 0.98), stop:0.3 rgba(11, 11, 14, 0.85), stop:0.7 rgba(11, 11, 14, 0.90), stop:1 rgba(11, 11, 14, 1.0));
 }}
 QWidget {{
     background-color: transparent;
@@ -45,59 +54,33 @@ QWidget {{
 
 /* ─── Scrollbars ─────────────────────────────────────────────── */
 QScrollBar:vertical {{
-    background: {BG_DARK};
-    width: 6px;
+    background: transparent;
+    width: 2px;
     margin: 0;
-    border-radius: 3px;
 }}
 QScrollBar::handle:vertical {{
     background: {BORDER_LT};
-    border-radius: 3px;
-    min-height: 24px;
+    border-radius: 1px;
+    min-height: 20px;
 }}
-QScrollBar::handle:vertical:hover {{
-    background: {GOLD_DIM};
-}}
-QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{ height: 0; }}
-QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {{ background: none; }}
+QScrollBar::handle:vertical:hover {{ background: {GOLD}; }}
 
-/* ─── Title bar ──────────────────────────────────────────────── */
+/* ─── Header ─────────────────────────────────────────────────── */
 #titleBar {{
-    background: qlineargradient(x1:0,y1:0,x2:1,y2:0,
-        stop:0 #0e0606, stop:0.25 #1a1030, stop:0.75 #1a1030, stop:1 #0e0606);
-    border-bottom: 2px solid {GOLD};
+    background: {BG_DARK};
+    border-bottom: 1px solid {BORDER};
 }}
 #appTitle {{
-    font-size: 32px;
+    font-size: 42px;
     font-weight: 900;
     color: {GOLD};
-    letter-spacing: 8px;
+    letter-spacing: 24px;
 }}
 #appSubtitle {{
     font-size: 10px;
     color: {TEXT_DIM};
-    letter-spacing: 4px;
-}}
-
-/* ─── Action bar ─────────────────────────────────────────────── */
-#actionBar {{
-    background: {BG_PANEL};
-    border-bottom: 1px solid {BORDER};
-}}
-
-/* ─── Path bar ───────────────────────────────────────────────── */
-#pathBar {{
-    background: {BG_DARK};
-    border-bottom: 1px solid {BORDER};
-}}
-#pathKey {{
-    color: {TEXT_DIM};
-    font-size: 10px;
-    letter-spacing: 2px;
-}}
-#pathValue {{
-    color: {GOLD};
-    font-size: 11px;
+    letter-spacing: 8px;
+    text-transform: uppercase;
 }}
 
 /* ─── Tabs ───────────────────────────────────────────────────── */
@@ -107,210 +90,85 @@ QTabWidget::pane {{
 }}
 QTabWidget::tab-bar {{
     alignment: left;
+    margin-left: 20px;
 }}
 QTabBar::tab {{
-    background: {BG_DARK};
+    background: transparent;
     color: {TEXT_DIM};
-    border: none;
     border-bottom: 2px solid transparent;
-    padding: 12px 28px;
-    font-size: 12px;
-    letter-spacing: 2px;
-    min-width: 130px;
+    padding: 24px 30px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    text-transform: uppercase;
 }}
 QTabBar::tab:selected {{
-    background: {BG_PANEL};
     color: {GOLD};
     border-bottom: 2px solid {GOLD};
-    font-weight: bold;
-}}
-QTabBar::tab:hover:!selected {{
-    background: {BG_CARD};
-    color: {TEXT};
-    border-bottom: 2px solid {BORDER_LT};
 }}
 
-/* ─── GroupBox ───────────────────────────────────────────────── */
+/* ─── Cards ──────────────────────────────────────────────────── */
 QGroupBox {{
-    background: {BG_CARD};
+    background: {BG_PANEL};
     border: 1px solid {BORDER};
-    border-top: 2px solid {BORDER_LT};
-    border-radius: 10px;
-    margin-top: 18px;
-    padding: 14px 16px 14px 16px;
-    font-size: 11px;
-    font-weight: bold;
+    border-radius: 20px;
+    margin-top: 32px;
+    padding: 30px;
+    font-size: 10px;
+    font-weight: 800;
     color: {TEXT_DIM};
-    letter-spacing: 2px;
+    letter-spacing: 6px;
 }}
 QGroupBox::title {{
     subcontrol-origin: margin;
-    subcontrol-position: top left;
-    left: 14px;
-    padding: 2px 10px;
-    color: {TEXT_DIM};
-    background: {BG_CARD};
-    border-radius: 3px;
+    subcontrol-position: top center;
+    top: 12px;
+    padding: 0 24px;
+    background: {BG_PANEL};
 }}
 
-/* ─── Inputs ─────────────────────────────────────────────────── */
-QLineEdit {{
-    background: {BG_INSET};
+/* ─── Items ──────────────────────────────────────────────────── */
+#resourceCard {{
+    background: {BG_CARD};
+    border-radius: 14px;
+}}
+#gameToggle {{
+    padding: 10px 30px;
+    font-size: 11px;
+    font-weight: 900;
+    border-radius: 22px;
+    background: {BG_CARD};
     border: 1px solid {BORDER};
-    border-radius: 6px;
-    color: {TEXT};
-    padding: 7px 12px;
-    font-size: 15px;
-    font-weight: bold;
-    selection-background-color: {ORANGE};
-}}
-QLineEdit:focus {{
-    border: 1px solid {GOLD};
-    background: #120e1e;
-}}
-QSpinBox {{
-    background: {BG_INSET};
-    border: 1px solid {BORDER};
-    border-radius: 6px;
-    color: {TEXT};
-    padding: 5px 8px;
-    font-size: 14px;
-    font-weight: bold;
-    min-width: 56px;
-}}
-QSpinBox:focus {{ border: 1px solid {GOLD}; }}
-QSpinBox::up-button, QSpinBox::down-button {{
-    background: {BG_CARD};
-    border: none;
-    width: 20px;
-    border-radius: 3px;
-}}
-QSpinBox::up-arrow   {{ width: 8px; height: 8px; }}
-QSpinBox::down-arrow {{ width: 8px; height: 8px; }}
-
-/* ─── Checkboxes ─────────────────────────────────────────────── */
-QCheckBox {{
-    color: {TEXT};
-    spacing: 10px;
-    font-size: 13px;
-}}
-QCheckBox::indicator {{
-    width: 20px;
-    height: 20px;
-    border: 2px solid {BORDER_LT};
-    border-radius: 5px;
-    background: {BG_INSET};
-}}
-QCheckBox::indicator:checked {{
-    background: {GOLD};
-    border-color: {GOLD};
-    image: none;
-}}
-QCheckBox::indicator:checked:hover {{ background: {GOLD_PALE}; }}
-
-/* ─── Buttons ────────────────────────────────────────────────── */
-QPushButton {{
-    background: qlineargradient(x1:0,y1:0,x2:0,y2:1,
-        stop:0 #3c2810, stop:1 #1e1208);
-    border: 1px solid {GOLD_DIM};
-    border-radius: 7px;
-    color: {GOLD};
-    font-weight: bold;
-    font-size: 12px;
-    padding: 9px 22px;
-    letter-spacing: 1px;
-}}
-QPushButton:hover {{
-    background: qlineargradient(x1:0,y1:0,x2:0,y2:1,
-        stop:0 #5c3c18, stop:1 #2e1c0c);
-    border-color: {GOLD};
-    color: {GOLD_PALE};
-}}
-QPushButton:pressed {{
-    background: #100c04;
-    padding-top: 10px;
-    padding-bottom: 8px;
-}}
-QPushButton:disabled {{
-    color: {TEXT_DIM};
-    border-color: {BORDER};
-    background: {BG_CARD};
-}}
-#btnPrimary {{
-    background: qlineargradient(x1:0,y1:0,x2:0,y2:1,
-        stop:0 #4a3014, stop:1 #241808);
-    border: 1px solid {GOLD};
-    font-size: 13px;
-    padding: 10px 28px;
-}}
-#btnPrimary:hover {{
-    background: qlineargradient(x1:0,y1:0,x2:0,y2:1,
-        stop:0 #7a5020, stop:1 #3c2810);
-}}
-#btnMax {{
-    background: qlineargradient(x1:0,y1:0,x2:0,y2:1,
-        stop:0 #183040, stop:1 #0c1820);
-    border: 1px solid {BLUE};
-    color: #80c0f0;
-    font-size: 12px;
-}}
-#btnMax:hover {{
-    background: qlineargradient(x1:0,y1:0,x2:0,y2:1,
-        stop:0 #284858, stop:1 #182838);
-    color: #b0d8ff;
-    border-color: #60a0e0;
-}}
-#btnDanger {{
-    background: qlineargradient(x1:0,y1:0,x2:0,y2:1,
-        stop:0 #3a1010, stop:1 #1e0808);
-    border: 1px solid #7a3020;
-    color: #e06060;
-}}
-#btnDanger:hover {{
-    background: qlineargradient(x1:0,y1:0,x2:0,y2:1,
-        stop:0 #5a1818, stop:1 #300c0c);
-    color: #ff9090;
-    border-color: {RED};
-}}
-
-/* ─── Labels ─────────────────────────────────────────────────── */
-#tagLabel {{
-    font-size: 9px;
-    letter-spacing: 3px;
-    color: {TEXT_DIM};
-    text-transform: uppercase;
-}}
-#bigValue {{
-    font-size: 22px;
-    font-weight: bold;
-    color: {TEXT};
-}}
-#weaponTitle {{
-    font-size: 15px;
-    font-weight: bold;
-    color: {TEXT};
-    letter-spacing: 1px;
-}}
-#weaponSub {{
-    font-size: 10px;
     color: {TEXT_DIM};
     letter-spacing: 2px;
 }}
-#badgeTop {{
-    font-size: 9px;
-    letter-spacing: 3px;
-    color: {TEXT_DIM};
+#gameToggle:checked {{
+    background: {GOLD};
+    border-color: {GOLD};
+    color: {BG_DARK};
 }}
-#badgeBot {{
-    font-size: 16px;
-    font-weight: bold;
-    color: {GOLD};
+
+QPushButton {{
+    background: {BG_PANEL};
+    border: 1px solid {BORDER};
+    border-radius: 14px;
+    color: {TEXT};
+    font-weight: 700;
+    font-size: 11px;
+    padding: 12px 28px;
+    letter-spacing: 1px;
 }}
-#divLabel {{
-    font-size: 10px;
-    letter-spacing: 3px;
-    color: {BORDER_LT};
+QPushButton:hover {{
+    background: {BORDER};
+    border-color: {TEXT_DIM};
 }}
+#btnPrimary {{
+    background: white;
+    color: black;
+    border: none;
+    font-weight: 900;
+}}
+#btnPrimary:hover {{ background: {GOLD_PALE}; }}
 """
 
 # ── Weapon definitions ────────────────────────────────────────────────────────
@@ -771,6 +629,47 @@ class Badge(QWidget):
         self._bot.setText(str(v))
 
 
+# ── Welcome / Legal Dialog ────────────────────────────────────────────────────
+from PyQt5.QtWidgets import QDialog
+
+class WelcomeDialog(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("✦ HSE ✦")
+        self.setFixedSize(500, 420)
+        self.setWindowFlags(Qt.FramelessWindowHint | Qt.Dialog)
+        
+        lay = QVBoxLayout(self)
+        lay.setContentsMargins(50, 50, 50, 50)
+        lay.setSpacing(30)
+        self.setStyleSheet(f"background-color: {BG_DARK};")
+        
+        title = QLabel("HSE")
+        title.setAlignment(Qt.AlignCenter)
+        title.setStyleSheet(f"font-size: 24px; font-weight: 800; color: {GOLD}; letter-spacing: 12px;")
+        lay.addWidget(title)
+        
+        desc = QLabel(
+            "Software experimental para la edición de partidas de Hades y Hades II.\n\n"
+            "El uso de esta herramienta puede corromper tus datos. Asegúrate de respaldar "
+            "tus archivos .sav manualmente antes de realizar cambios."
+        )
+        desc.setWordWrap(True)
+        desc.setAlignment(Qt.AlignCenter)
+        desc.setStyleSheet(f"color: {TEXT_DIM}; line-height: 160%; font-size: 13px;")
+        lay.addWidget(desc)
+        
+        lay.addStretch()
+        
+        self.btn = QPushButton("ENTRAR AL INFRAMUNDO")
+        self.btn.setObjectName("btnPrimary")
+        self.btn.setFixedHeight(50)
+        self.btn.setCursor(Qt.PointingHandCursor)
+        self.btn.clicked.connect(self.accept)
+        lay.addWidget(self.btn)
+
+        self.setStyleSheet(QSS)
+
 # ── Main window ───────────────────────────────────────────────────────────────
 class HadesEditor(QMainWindow):
     def __init__(self):
@@ -778,10 +677,18 @@ class HadesEditor(QMainWindow):
         self.save_file: HadesSaveFile = None
         self.file_path: str = None
 
-        self.setWindowTitle("PLUTO  ·  HadesEditor")
+        self.setWindowTitle("HSE · Hades Save Editor")
         self.setMinimumSize(960, 700)
         self.resize(1100, 780)
         self.setStyleSheet(QSS)
+
+        self.bg_widget = QWidget(self)
+        self.bg_widget.setObjectName("mainWindowBackground")
+        self.bg_widget.setGeometry(0, 0, 1100, 780)
+        # Background is set dynamically in _on_game_toggled
+        self.bg_overlay = QWidget(self.bg_widget)
+        self.bg_overlay.setObjectName("bgOverlay")
+        self.bg_overlay.setGeometry(0, 0, 1100, 780)
 
         central = QWidget()
         self.setCentralWidget(central)
@@ -796,12 +703,24 @@ class HadesEditor(QMainWindow):
         self.tabs = QTabWidget()
         self.tabs.setEnabled(False)
         root.addWidget(self.tabs)
+        self._rebuild_tabs()
+        
+        root.addWidget(self._build_footer())
 
-        self.tabs.addTab(self._tab_resources(),   "⚗   RECURSOS")
-        self.tabs.addTab(self._tab_weapons(),     "⚔   ARMAS  &  ASPECTOS")
-        self.tabs.addTab(self._tab_companions(),  "🐾   COMPAÑEROS  &  PROGRESIÓN")
-        self.tabs.addTab(self._tab_items(),       "🙏   MIRROR  &  KEEPSAKES")
-        self.tabs.addTab(self._tab_progress(),   "🏛   PROGRESO")
+    def _rebuild_tabs(self):
+        self.tabs.clear()
+        is_h2 = self.game_toggle.isChecked()
+        if is_h2:
+            self.tabs.addTab(self._tab_resources_h2(), "⚗  RECURSOS")
+            self.tabs.addTab(self._tab_weapons_h2(),   "⚔  ARMAS  &  HERRAMIENTAS")
+            self.tabs.addTab(self._tab_arcana_h2(),    "🃏  ARCANA")
+            self.tabs.addTab(self._tab_progress(),     "🏛  PROGRESO")
+        else:
+            self.tabs.addTab(self._tab_resources(),    "⚗  RECURSOS")
+            self.tabs.addTab(self._tab_weapons(),      "⚔  ARMAS  &  ASPECTOS")
+            self.tabs.addTab(self._tab_companions(),   "🐾  COMPAÑEROS")
+            self.tabs.addTab(self._tab_items(),        "🙏  MIRROR  &  KEEPSAKES")
+            self.tabs.addTab(self._tab_progress(),     "🏛  PROGRESO")
 
     # ── Sections ──────────────────────────────────────────────────────────────
     def _build_title(self):
@@ -815,9 +734,9 @@ class HadesEditor(QMainWindow):
         v = QVBoxLayout()
         v.setSpacing(2)
         v.addStretch()
-        title = QLabel("✦  HADESEDITOR  ✦")
+        title = QLabel("HSE")
         title.setObjectName("appTitle")
-        sub = QLabel("H A D E S   S A V E   E D I T O R")
+        sub = QLabel("H A D E S   S A V E   E D I T O R   II")
         sub.setObjectName("appSubtitle")
         v.addWidget(title)
         v.addWidget(sub)
@@ -836,26 +755,35 @@ class HadesEditor(QMainWindow):
     def _build_action_bar(self):
         w = QWidget()
         w.setObjectName("actionBar")
-        w.setFixedHeight(54)
+        w.setFixedHeight(64)
         h = QHBoxLayout(w)
-        h.setContentsMargins(18, 8, 18, 8)
-        h.setSpacing(10)
+        h.setContentsMargins(24, 8, 24, 8)
+        h.setSpacing(12)
 
-        self.btn_load = QPushButton("📂   Cargar Save")
+        # Game Selector
+        self.game_toggle = QPushButton("HADES I")
+        self.game_toggle.setCheckable(True)
+        self.game_toggle.setObjectName("gameToggle")
+        self.game_toggle.toggled.connect(self._on_game_toggled)
+        h.addWidget(self.game_toggle)
+        h.addSpacing(10)
+
+        self.btn_load = QPushButton("📂  CARGAR")
         self.btn_load.setObjectName("btnPrimary")
         self.btn_load.clicked.connect(self._load)
 
-        self.btn_save = QPushButton("💾   Guardar")
+        self.btn_save = QPushButton("💾  GUARDAR")
         self.btn_save.setEnabled(False)
         self.btn_save.clicked.connect(self._save)
 
-        self.btn_max = QPushButton("✨   Maximizar Todo")
+        self.btn_max = QPushButton("✨  MAX")
         self.btn_max.setObjectName("btnMax")
         self.btn_max.setEnabled(False)
         self.btn_max.clicked.connect(self._max_all)
 
-        btn_exit = QPushButton("✕   Salir")
+        btn_exit = QPushButton("✕")
         btn_exit.setObjectName("btnDanger")
+        btn_exit.setFixedWidth(44)
         btn_exit.clicked.connect(self.close)
 
         for b in (self.btn_load, self.btn_save, self.btn_max):
@@ -863,6 +791,25 @@ class HadesEditor(QMainWindow):
         h.addStretch()
         h.addWidget(btn_exit)
         return w
+
+    def _on_game_toggled(self, checked):
+        name = "HADES II" if checked else "HADES I"
+        self.game_toggle.setText(name)
+        
+        bg_path = "resources/HadesII_bg.png" if checked else "resources/HadesI_bg.png"
+        self.bg_widget.setStyleSheet(f"border-image: url('{bg_path}');")
+        
+        self._rebuild_tabs()
+        if not self.save_file:
+            game_sub = "HADES II" if checked else "HADES"
+            self._path_lbl.setText(f"—  Editor modo {game_sub} (Sin archivo)")
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        if hasattr(self, 'bg_widget'):
+            self.bg_widget.setGeometry(0, 0, self.width(), self.height())
+            self.bg_overlay.setGeometry(0, 0, self.width(), self.height())
+
 
     def _build_path_bar(self):
         w = QWidget()
@@ -878,6 +825,17 @@ class HadesEditor(QMainWindow):
         h.addWidget(k)
         h.addWidget(self._path_lbl)
         h.addStretch()
+        return w
+
+    def _build_footer(self):
+        w = QWidget()
+        w.setFixedHeight(30)
+        h = QHBoxLayout(w)
+        h.setContentsMargins(24, 0, 24, 0)
+        lbl = QLabel("© HSE - Desarrollado y diseñado por Marcos Galán | Original por Zsennenga")
+        lbl.setStyleSheet(f"color: {TEXT_DIM}; font-size: 10px; letter-spacing: 1px;")
+        lbl.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        h.addWidget(lbl)
         return w
 
     # ── Tabs ──────────────────────────────────────────────────────────────────
@@ -1139,8 +1097,19 @@ class HadesEditor(QMainWindow):
         return c
 
     def _hades_dir(self):
-        d = os.path.expanduser("~/Library/Application Support/Supergiant Games/Hades")
-        return d if os.path.isdir(d) else ""
+        is_hades_2 = self.game_toggle.isChecked()
+        game_dir = "Hades II" if is_hades_2 else "Hades"
+        
+        if sys.platform == "win32":
+            # Windows: Saved Games
+            d = os.path.join(os.path.expanduser("~"), "Documents", "Saved Games", game_dir)
+            if not os.path.isdir(d):
+                d = os.path.join(os.path.expanduser("~"), "Documents", game_dir)
+        else:
+            # macOS
+            d = os.path.expanduser(f"~/Library/Application Support/Supergiant Games/{game_dir}")
+        
+        return d if os.path.isdir(d) else os.path.expanduser("~")
 
     # ── Items tab (Mirror + Keepsakes) ────────────────────────────────────────
     def _tab_items(self):
@@ -1346,132 +1315,172 @@ class HadesEditor(QMainWindow):
     def _populate(self):
         sf = self.save_file
         gs = sf.lua_state._active_state.get("GameState", {})
+        is_h2 = self.game_toggle.isChecked()
 
         self._badge_ver.set_value(sf.version)
         self._badge_run.set_value(sf.runs)
         self._badge_loc.set_value(sf.location.replace("Location_", ""))
 
-        for key, val in {
-            "darkness":      sf.lua_state.darkness,
-            "gems":          sf.lua_state.gems,
-            "diamonds":      sf.lua_state.diamonds,
-            "nectar":        sf.lua_state.nectar,
-            "ambrosia":      sf.lua_state.ambrosia,
-            "chthonic_key":  sf.lua_state.chthonic_key,
-            "titan_blood":   sf.lua_state.titan_blood,
-        }.items():
-            self._res[key].set_value(val or 0)
+        if is_h2:
+            res = gs.get("Resources", {})
+            for key, card in self._res_h2.items():
+                card.set_value(int(res.get(key, 0)))
+            
+            wu = gs.get("WeaponsUnlocked", {})
+            for key, chk in self._w_h2.items():
+                chk.setChecked(key in wu)
+            for key, chk in self._t_h2.items():
+                chk.setChecked(key in wu)
+            
+            mus = gs.get("MetaUpgradeState", {})
+            for key, chk in self._arcana_checks.items():
+                card_data = mus.get(key, {})
+                chk.setChecked(bool(card_data.get("Unlocked", False)))
+        else:
+            for key, val in {
+                "darkness":      sf.lua_state.darkness,
+                "gems":          sf.lua_state.gems,
+                "diamonds":      sf.lua_state.diamonds,
+                "nectar":        sf.lua_state.nectar,
+                "ambrosia":      sf.lua_state.ambrosia,
+                "chthonic_key":  sf.lua_state.chthonic_key,
+                "titan_blood":   sf.lua_state.titan_blood,
+            }.items():
+                self._res[key].set_value(val or 0)
 
-        self.chk_god.setChecked(bool(sf.god_mode_enabled))
-        self.chk_hell.setChecked(bool(sf.hell_mode_enabled))
+            self.chk_god.setChecked(bool(sf.god_mode_enabled))
+            self.chk_hell.setChecked(bool(sf.hell_mode_enabled))
 
-        wu  = gs.get("WeaponsUnlocked", {})
-        wul = gs.get("WeaponUnlocks", {})
-        for card in self._weapon_cards:
-            card.load(wu, wul)
+            wu  = gs.get("WeaponsUnlocked", {})
+            wul = gs.get("WeaponUnlocks", {})
+            for card in self._weapon_cards:
+                card.load(wu, wul)
+
+            # Companions tab
+            gift = gs.get("Gift", {})
+            for key, spin in self._npc_spin.items():
+                val = gift.get(key, {}).get("Value", 0) if isinstance(gift.get(key), dict) else 0
+                spin.setValue(int(val))
+
+            flags = gs.get("Flags", {})
+            for key, chk in self._flag_checks.items():
+                chk.setChecked(bool(flags.get(key, False)))
+
+            quest = gs.get("QuestStatus", {})
+            for key, chk in self._quest_checks.items():
+                status = quest.get(key, "")
+                chk.setChecked(status in ("CashedOut", "Completed"))
+
+            # Items tab
+            meta_ups = gs.get("MetaUpgrades", {})
+            for key, spin in self._mirror_spin.items():
+                spin.setValue(int(meta_ups.get(key, 0)))
+
+            kc = gs.get("KeepsakeChambers", {})
+            for key, spin in self._ks_spin.items():
+                spin.setValue(int(kc.get(key, 0)))
+
+            for key, (chk, npc_key) in self._ks_unlock.items():
+                val = gift.get(npc_key, {}).get("Value", 0) if isinstance(gift.get(npc_key), dict) else 0
+                chk.setChecked(val > 0)
 
         self._meta["runs"].set_value(sf.runs)
         self._meta["active_meta_points"].set_value(sf.active_meta_points)
         self._meta["active_shrine_points"].set_value(sf.active_shrine_points)
 
-        flags = gs.get("Flags", {})
-        self.chk_aspects.setChecked(bool(flags.get("AspectsUnlocked", False)))
-        self.chk_gun.setChecked(bool(flags.get("GunUnlocked", False)))
-
-        # Companions tab
-        gift = gs.get("Gift", {})
-        for key, spin in self._npc_spin.items():
-            val = gift.get(key, {}).get("Value", 0) if isinstance(gift.get(key), dict) else 0
-            spin.setValue(int(val))
-
-        for key, chk in self._flag_checks.items():
-            chk.setChecked(bool(flags.get(key, False)))
-
-        quest = gs.get("QuestStatus", {})
-        for key, chk in self._quest_checks.items():
-            status = quest.get(key, "")
-            chk.setChecked(status in ("CashedOut", "Completed"))
-
-        # Items tab
-        meta_ups = gs.get("MetaUpgrades", {})
-        for key, spin in self._mirror_spin.items():
-            spin.setValue(int(meta_ups.get(key, 0)))
-
-        kc = gs.get("KeepsakeChambers", {})
-        for key, spin in self._ks_spin.items():
-            spin.setValue(int(kc.get(key, 0)))
-
-        for key, (chk, npc_key) in self._ks_unlock.items():
-            val = gift.get(npc_key, {}).get("Value", 0) if isinstance(gift.get(npc_key), dict) else 0
-            chk.setChecked(val > 0)
-
     def _collect(self):
         sf = self.save_file
         gs = sf.lua_state._active_state.setdefault("GameState", {})
-
-        sf.lua_state.darkness     = self._res["darkness"].value()
-        sf.lua_state.gems         = self._res["gems"].value()
-        sf.lua_state.diamonds     = self._res["diamonds"].value()
-        sf.lua_state.nectar       = self._res["nectar"].value()
-        sf.lua_state.ambrosia     = self._res["ambrosia"].value()
-        sf.lua_state.chthonic_key = self._res["chthonic_key"].value()
-        sf.lua_state.titan_blood  = self._res["titan_blood"].value()
-
-        sf.god_mode_enabled  = self.chk_god.isChecked()
-        sf.hell_mode_enabled = self.chk_hell.isChecked()
-
-        wu  = gs.setdefault("WeaponsUnlocked", {})
-        wul = gs.setdefault("WeaponUnlocks", {})
-        for card in self._weapon_cards:
-            card.save(wu, wul)
+        is_h2 = self.game_toggle.isChecked()
 
         sf.runs                 = int(self._meta["runs"].value())
         sf.active_meta_points   = int(self._meta["active_meta_points"].value())
         sf.active_shrine_points = int(self._meta["active_shrine_points"].value())
 
-        flags = gs.setdefault("Flags", {})
-        flags["AspectsUnlocked"] = self.chk_aspects.isChecked()
-        flags["GunUnlocked"]     = self.chk_gun.isChecked()
+        if is_h2:
+            res = gs.setdefault("Resources", {})
+            lifes = gs.setdefault("LifetimeResources", {})
+            for key, card in self._res_h2.items():
+                val = float(card.value())
+                res[key] = val
+                # In Hades II, we must also update LifetimeResources for the game to recognize unlocks
+                if key not in ("Money"):
+                    lifes[key] = max(lifes.get(key, 0), val)
+            
+            wu = gs.setdefault("WeaponsUnlocked", {})
+            wul = gs.setdefault("WeaponUnlocks", {})
+            for key, chk in self._w_h2.items():
+                if chk.isChecked():
+                    wu[key] = 1.0
+                    wul[key] = 1.0
+                else:
+                    wu.pop(key, None)
+                    wul.pop(key, None)
+            for key, chk in self._t_h2.items():
+                if chk.isChecked():
+                    wu[key] = 1.0
+                    wul[key] = 1.0
+                else:
+                    wu.pop(key, None)
+                    wul.pop(key, None)
+            
+            mus = gs.setdefault("MetaUpgradeState", {})
+            for key, chk in self._arcana_checks.items():
+                if key not in mus: mus[key] = {"Level": 1.0, "AdjacencyBonuses": {}}
+                val = 1.0 if chk.isChecked() else 0.0
+                mus[key]["Unlocked"] = val
+                mus[key]["Equipped"] = val
+        else:
+            sf.lua_state.darkness     = self._res["darkness"].value()
+            sf.lua_state.gems         = self._res["gems"].value()
+            sf.lua_state.diamonds     = self._res["diamonds"].value()
+            sf.lua_state.nectar       = self._res["nectar"].value()
+            sf.lua_state.ambrosia     = self._res["ambrosia"].value()
+            sf.lua_state.chthonic_key = self._res["chthonic_key"].value()
+            sf.lua_state.titan_blood  = self._res["titan_blood"].value()
 
-        # Companions
-        gift = gs.setdefault("Gift", {})
-        for key, spin in self._npc_spin.items():
-            if key not in gift or not isinstance(gift[key], dict):
-                gift[key] = {"Value": float(spin.value()), "NewTraits": {}}
-            else:
-                gift[key]["Value"] = float(spin.value())
+            sf.god_mode_enabled  = self.chk_god.isChecked()
+            sf.hell_mode_enabled = self.chk_hell.isChecked()
 
-        for key, chk in self._flag_checks.items():
-            flags[key] = chk.isChecked()
+            wu  = gs.setdefault("WeaponsUnlocked", {})
+            wul = gs.setdefault("WeaponUnlocks", {})
+            for card in self._weapon_cards:
+                card.save(wu, wul)
 
-        quest = gs.setdefault("QuestStatus", {})
-        for key, chk in self._quest_checks.items():
-            if chk.isChecked():
-                quest[key] = "CashedOut"
-            else:
-                quest.pop(key, None)
+            flags = gs.setdefault("Flags", {})
+            for key, chk in self._flag_checks.items():
+                flags[key] = chk.isChecked()
 
-        # Mirror & Keepsakes
-        meta_ups = gs.setdefault("MetaUpgrades", {})
-        meta_state = gs.setdefault("MetaUpgradeState", {})
-        for key, spin in self._mirror_spin.items():
-            val = float(spin.value())
-            meta_ups[key]   = val
-            meta_state[key] = val
+            gift = gs.setdefault("Gift", {})
+            for key, spin in self._npc_spin.items():
+                if key not in gift or not isinstance(gift[key], dict):
+                    gift[key] = {"Value": float(spin.value()), "NewTraits": {}}
+                else:
+                    gift[key]["Value"] = float(spin.value())
 
-        kc = gs.setdefault("KeepsakeChambers", {})
-        for key, spin in self._ks_spin.items():
-            kc[key] = float(spin.value())
+            quest = gs.setdefault("QuestStatus", {})
+            for key, chk in self._quest_checks.items():
+                if chk.isChecked(): quest[key] = "CashedOut"
+                else: quest.pop(key, None)
 
-        for key, (chk, npc_key) in self._ks_unlock.items():
-            if chk.isChecked():
-                if npc_key not in gift or not isinstance(gift[npc_key], dict):
-                    gift[npc_key] = {"Value": 1.0, "NewTraits": {}}
-                elif gift[npc_key].get("Value", 0) == 0:
-                    gift[npc_key]["Value"] = 1.0
-            else:
-                if npc_key in gift and isinstance(gift[npc_key], dict):
-                    gift[npc_key]["Value"] = 0.0
+            meta_ups   = gs.setdefault("MetaUpgrades", {})
+            meta_state = gs.setdefault("MetaUpgradeState", {})
+            for key, spin in self._mirror_spin.items():
+                val = float(spin.value())
+                meta_ups[key] = val
+                meta_state[key] = val
+
+            kc = gs.setdefault("KeepsakeChambers", {})
+            for key, spin in self._ks_spin.items():
+                kc[key] = float(spin.value())
+
+            for key, (chk, npc_key) in self._ks_unlock.items():
+                if chk.isChecked():
+                    if npc_key not in gift or not isinstance(gift[npc_key], dict):
+                        gift[npc_key] = {"Value": 1.0, "NewTraits": {}}
+                    elif gift[npc_key].get("Value", 0) == 0: gift[npc_key]["Value"] = 1.0
+                else:
+                    if npc_key in gift and isinstance(gift[npc_key], dict): gift[npc_key]["Value"] = 0.0
 
     def _save(self):
         opts = QFileDialog.Options()
@@ -1523,10 +1532,179 @@ class HadesEditor(QMainWindow):
             spin.setValue(500)
 
 
+    def _max_all(self):
+        reply = QMessageBox.question(
+            self, "Maximizar Todo",
+            "¿Maximizar todos los recursos y desbloquear todo?",
+            QMessageBox.Yes | QMessageBox.No
+        )
+        if reply != QMessageBox.Yes:
+            return
+        
+        is_h2 = self.game_toggle.isChecked()
+        if is_h2:
+            for card in self._res_h2.values():
+                card.set_value(99999)
+            for chk in self._w_h2.values():
+                chk.setChecked(True)
+            for chk in self._t_h2.values():
+                chk.setChecked(True)
+            for chk in self._arcana_checks.values():
+                chk.setChecked(True)
+        else:
+            for card in self._res.values():
+                card.set_value(99999)
+            for wc in self._weapon_cards:
+                wc._max_all()
+            self.chk_aspects.setChecked(True)
+            self.chk_gun.setChecked(True)
+            for spin in self._npc_spin.values(): spin.setValue(10)
+            for chk in self._flag_checks.values(): chk.setChecked(True)
+            for chk in self._quest_checks.values(): chk.setChecked(True)
+
+    def _tab_resources_h2(self):
+        scroll, inner = self._scroll_tab()
+        lay = QVBoxLayout(inner)
+        lay.setContentsMargins(24, 20, 24, 24)
+        lay.setSpacing(20)
+
+        RESOURCES_H2 = [
+            ("🌑", "Ceniza (MetaPoints)", "MetaPoints",    GOLD),
+            ("🧠", "Psique (Memories)",   "Memories",      "#a080f0"),
+            ("🦴", "Huesos (Bones)",      "Bones",         "#f0f0f2"),
+            ("💰", "Oro (Money)",         "Money",         "#ffd700"),
+            ("🧶", "Tela del Destino",    "FateFabric",    "#60c0e0"),
+            ("⚒", "Plata (Silver)",      "Silver",        "#d0d0d0"),
+            ("🥉", "Bronce (Bronze)",     "Bronze",        "#cd7f32"),
+            ("⛓", "Hierro (Iron)",       "OrestesIron",   "#708090"),
+            ("🌙", "Polvo Lunar",         "MoonDust",      "#40c0f0"),
+            ("✨", "Polvo Estelar",       "StarDust",      "#ffe0a0"),
+            ("🍎", "Manzana Dorada",      "GoldenApple",   "#e04040"),
+            ("🐑", "Lana (Wool)",         "Wool",          "#f2f2f2"),
+        ]
+        grp = self._group("RECURSOS DEL INFRAMUNDO (HADES II)")
+        grid = QGridLayout(grp)
+        grid.setSpacing(14)
+        self._res_h2 = {}
+        for i, (icon, label, key, color) in enumerate(RESOURCES_H2):
+            card = ResourceCard(icon, label, color)
+            self._res_h2[key] = card
+            grid.addWidget(card, i // 4, i % 4)
+        lay.addWidget(grp)
+        lay.addStretch()
+        return scroll
+
+    def _tab_arcana_h2(self):
+        scroll, inner = self._scroll_tab()
+        lay = QVBoxLayout(inner)
+        lay.setContentsMargins(24, 20, 24, 24)
+        lay.setSpacing(10)
+        
+        hint = QLabel("✦  Desbloquea cartas de Arcana para Melinoë")
+        hint.setStyleSheet(f"color: {TEXT_DIM}; font-size: 11px; padding-bottom: 10px;")
+        lay.addWidget(hint)
+
+        # Mapping key from GameState.MetaUpgradeState to localized names
+        CARDS = [
+            ("SorceryRegenUpgrade", "I - The Sorceress"),
+            ("ManaOverTime",        "II - The Wayward Swift"),
+            ("CardDraw",           "III - The Fates"),
+            ("ScreenReroll",       "IV - The Queen"),
+            ("StatusVulnerability","V - The Moon"),
+            ("ChanneledCast",       "VI - The Night"),
+            ("CastCount",          "VII - The Unseen"),
+            ("MagicCrit",          "VIII - The Titan"),
+            ("BonusDodge",         "IX - The Messenger"),
+            ("TradeOff",           "X - The Centaur"),
+            ("HealthRegen",        "XI - The Lovers"),
+            ("RarityBoost",        "XII - The Furies"),
+            ("LowHealthBonus",     "XIII - The Boatman"),
+            ("ChanneledBlock",     "XIV - The Strength"),
+            ("BonusHealth",        "XV - The Wheel"),
+            ("StartingGold",       "XVI - The Guild"),
+            ("EpicRarityBoost",    "XVII - The Divinity"),
+            ("LastStand",          "XVIII - The Eternity"),
+            ("SprintShield",       "XIX - The Guardian"),
+            ("BonusRarity",        "XX - The Artificer"),
+            ("DoorReroll",         "XXI - The Judgment"),
+            ("MaxHealthPerRoom",   "XXII - The World")
+        ]
+        
+        grp = self._group("CARTAS DE TAROT (ARCANA)")
+        grid = QGridLayout(grp)
+        self._arcana_checks = {}
+        for i, (key, label) in enumerate(CARDS):
+            chk = self._fancy_check(label, "#c0a0f0")
+            self._arcana_checks[key] = chk
+            grid.addWidget(chk, i // 3, i % 3)
+        lay.addWidget(grp)
+        lay.addStretch()
+        return scroll
+
+    def _tab_weapons_h2(self):
+        scroll, inner = self._scroll_tab()
+        lay = QVBoxLayout(inner)
+        lay.setContentsMargins(24, 20, 24, 24)
+        lay.setSpacing(20)
+
+        H2_WEAPONS_DATA = [
+            ("Staff",   "Witch's Staff", "StaffWeapon",  GOLD),
+            ("Blades",  "Sister Blades", "DaggerWeapon", "#e06060"),
+            ("Torch",   "Umbral Flames", "TorchWeapon",  "#c080f0"),
+            ("Axe",     "Moonstone Axe", "AxeWeapon",    "#60d0e0"),
+            ("Skull",   "Argent Skull",  "LobWeapon",    "#8090b0"),
+        ]
+        grp = self._group("ARMAS DE MELINOË")
+        g_lay = QGridLayout(grp)
+        g_lay.setSpacing(12)
+        self._w_h2 = {}
+        for i, (name, label, key, color) in enumerate(H2_WEAPONS_DATA):
+            chk = self._fancy_check(label, color)
+            self._w_h2[key] = chk
+            g_lay.addWidget(chk, i // 2, i % 2)
+        lay.addWidget(grp)
+
+        TOOLS = [
+            ("Pick",   "Crescent Pick",  "PickTool",    "#a0b0c0"),
+            ("Tablet", "Tablet of Peace","TabletTool",  "#e0e0a0"),
+            ("Shovel", "Silver Spade",   "ShovelTool",  "#c0c0c0"),
+            ("Rod",    "Rod of Fishing", "FishingTool", "#60a0f0"),
+        ]
+        grp2 = self._group("HERRAMIENTAS")
+        gt_lay = QGridLayout(grp2)
+        gt_lay.setSpacing(12)
+        self._t_h2 = {}
+        for i, (name, label, key, color) in enumerate(TOOLS):
+            chk = self._fancy_check(label, color)
+            self._t_h2[key] = chk
+            gt_lay.addWidget(chk, i // 2, i % 2)
+        lay.addWidget(grp2)
+        lay.addStretch()
+        return scroll
+
+
 # ── Entry ─────────────────────────────────────────────────────────────────────
+# ── Entry ─────────────────────────────────────────────────────────────────────
+    
 if __name__ == "__main__":
     app = QApplication(sys.argv)
+    
+    QCoreApplication.setApplicationName("HSE")
+    QCoreApplication.setOrganizationDomain("HADESEDITOR")
+    app.setApplicationDisplayName("HSE")
+    
+    icon_path = os.path.join(os.path.dirname(__file__), "resources", "Icon.png")
+    if os.path.exists(icon_path):
+        app.setWindowIcon(QIcon(icon_path))
+        
     app.setStyle("Fusion")
-    win = HadesEditor()
-    win.show()
-    sys.exit(app.exec_())
+    
+    welcome = WelcomeDialog()
+    if welcome.exec_() == QDialog.Accepted:
+        win = HadesEditor()
+        win.show()
+        # Initialize background safely
+        win._on_game_toggled(False)
+        sys.exit(app.exec_())
+    else:
+        sys.exit(0)
