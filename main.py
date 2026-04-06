@@ -1326,11 +1326,13 @@ class HadesEditor(QMainWindow):
             for key, card in self._res_h2.items():
                 card.set_value(int(res.get(key, 0)))
             
-            wu = gs.get("WeaponsUnlocked", {})
-            for key, chk in self._w_h2.items():
-                chk.setChecked(key in wu)
-            for key, chk in self._t_h2.items():
-                chk.setChecked(key in wu)
+            # Armas y Herramientas — usar WorldUpgradesAdded como fuente real
+            wua = gs.get("WorldUpgradesAdded", {})
+            wu  = gs.get("WeaponsUnlocked", {})
+            for wua_key, (chk, wu_key) in self._w_h2.items():
+                chk.setChecked(wua_key in wua or wu_key in wu)
+            for wua_key, (chk, wu_key) in self._t_h2.items():
+                chk.setChecked(wua_key in wua or wu_key in wu)
             
             mus = gs.get("MetaUpgradeState", {})
             for key, chk in self._arcana_checks.items():
@@ -1407,22 +1409,34 @@ class HadesEditor(QMainWindow):
                 if key not in ("Money"):
                     lifes[key] = max(lifes.get(key, 0), val)
             
-            wu = gs.setdefault("WeaponsUnlocked", {})
+            # Armas: escribir en WeaponsUnlocked, WeaponUnlocks Y WorldUpgradesAdded+Revealed
+            wu  = gs.setdefault("WeaponsUnlocked", {})
             wul = gs.setdefault("WeaponUnlocks", {})
-            for key, chk in self._w_h2.items():
+            wua = gs.setdefault("WorldUpgradesAdded", {})
+            wur = gs.setdefault("WorldUpgradesRevealed", {})
+            wuv = gs.setdefault("WorldUpgradesViewed", {})
+            for wua_key, (chk, wu_key) in self._w_h2.items():
                 if chk.isChecked():
-                    wu[key] = 1.0
-                    wul[key] = 1.0
+                    wu[wu_key]   = 1.0
+                    wul[wu_key]  = 1.0
+                    wua[wua_key] = 1.0
+                    wur[wua_key] = 1.0
+                    wuv[wua_key] = 1.0
                 else:
-                    wu.pop(key, None)
-                    wul.pop(key, None)
-            for key, chk in self._t_h2.items():
+                    wu.pop(wu_key, None)
+                    wul.pop(wu_key, None)
+                    wua.pop(wua_key, None)
+            for wua_key, (chk, wu_key) in self._t_h2.items():
                 if chk.isChecked():
-                    wu[key] = 1.0
-                    wul[key] = 1.0
+                    wu[wu_key]   = 1.0
+                    wul[wu_key]  = 1.0
+                    wua[wua_key] = 1.0
+                    wur[wua_key] = 1.0
+                    wuv[wua_key] = 1.0
                 else:
-                    wu.pop(key, None)
-                    wul.pop(key, None)
+                    wu.pop(wu_key, None)
+                    wul.pop(wu_key, None)
+                    wua.pop(wua_key, None)
             
             mus = gs.setdefault("MetaUpgradeState", {})
             for key, chk in self._arcana_checks.items():
@@ -1546,9 +1560,9 @@ class HadesEditor(QMainWindow):
             for card in self._res_h2.values():
                 card.set_value(99999)
             for chk in self._w_h2.values():
-                chk.setChecked(True)
+                chk[0].setChecked(True)
             for chk in self._t_h2.values():
-                chk.setChecked(True)
+                chk[0].setChecked(True)
             for chk in self._arcana_checks.values():
                 chk.setChecked(True)
         else:
@@ -1647,36 +1661,40 @@ class HadesEditor(QMainWindow):
         lay.setContentsMargins(24, 20, 24, 24)
         lay.setSpacing(20)
 
+        # Each tuple: (display_name, color, world_upgrade_key, weapons_unlocked_key)
+        # world_upgrade_key = key in WorldUpgradesAdded (the incantation result)
+        # weapons_unlocked_key = key in WeaponsUnlocked (the in-run access flag)
         H2_WEAPONS_DATA = [
-            ("Staff",   "Witch's Staff", "StaffWeapon",  GOLD),
-            ("Blades",  "Sister Blades", "DaggerWeapon", "#e06060"),
-            ("Torch",   "Umbral Flames", "TorchWeapon",  "#c080f0"),
-            ("Axe",     "Moonstone Axe", "AxeWeapon",    "#60d0e0"),
-            ("Skull",   "Argent Skull",  "LobWeapon",    "#8090b0"),
+            ("Báculo de Bruja",  GOLD,      "WeaponStaffSwing", "StaffWeapon"),
+            ("Cuchillas Gemelas","#e06060",   "WeaponDagger",    "DaggerWeapon"),
+            ("Llamas Umbrales",  "#c080f0",   "WeaponTorch",     "TorchWeapon"),
+            ("Hacha de Piedra",  "#60d0e0",   "WeaponAxe",       "AxeWeapon"),
+            ("Cáneo de Argento", "#8090b0",   "WeaponArcLob",    "LobWeapon"),
         ]
         grp = self._group("ARMAS DE MELINOË")
         g_lay = QGridLayout(grp)
         g_lay.setSpacing(12)
-        self._w_h2 = {}
-        for i, (name, label, key, color) in enumerate(H2_WEAPONS_DATA):
+        self._w_h2 = {}  # world_upgrade_key -> (chk, wu_key)
+        for i, (label, color, wua_key, wu_key) in enumerate(H2_WEAPONS_DATA):
             chk = self._fancy_check(label, color)
-            self._w_h2[key] = chk
+            self._w_h2[wua_key] = (chk, wu_key)
             g_lay.addWidget(chk, i // 2, i % 2)
         lay.addWidget(grp)
 
+        # Tools similarly use WorldUpgradesAdded for their "bought" state
         TOOLS = [
-            ("Pick",   "Crescent Pick",  "PickTool",    "#a0b0c0"),
-            ("Tablet", "Tablet of Peace","TabletTool",  "#e0e0a0"),
-            ("Shovel", "Silver Spade",   "ShovelTool",  "#c0c0c0"),
-            ("Rod",    "Rod of Fishing", "FishingTool", "#60a0f0"),
+            ("Pico Creciente",   "#a0b0c0",   "WeaponPick",      "PickTool"),
+            ("Tablilla de Paz",  "#e0e0a0",   "WeaponTablet",    "TabletTool"),
+            ("Pala de Plata",    "#c0c0c0",   "WeaponShovel",    "ShovelTool"),
+            ("Caña de Pescar",   "#60a0f0",   "WeaponFishing",   "FishingTool"),
         ]
         grp2 = self._group("HERRAMIENTAS")
         gt_lay = QGridLayout(grp2)
         gt_lay.setSpacing(12)
-        self._t_h2 = {}
-        for i, (name, label, key, color) in enumerate(TOOLS):
+        self._t_h2 = {}  # world_upgrade_key -> (chk, wu_key)
+        for i, (label, color, wua_key, wu_key) in enumerate(TOOLS):
             chk = self._fancy_check(label, color)
-            self._t_h2[key] = chk
+            self._t_h2[wua_key] = (chk, wu_key)
             gt_lay.addWidget(chk, i // 2, i % 2)
         lay.addWidget(grp2)
         lay.addStretch()
