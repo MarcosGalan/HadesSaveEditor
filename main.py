@@ -716,11 +716,12 @@ class HadesEditor(QMainWindow):
             self.tabs.addTab(self._tab_arcana_h2(),    "🃏  ARCANA")
             self.tabs.addTab(self._tab_progress(),     "🏛  PROGRESO")
         else:
-            self.tabs.addTab(self._tab_resources(),    "⚗  RECURSOS")
-            self.tabs.addTab(self._tab_weapons(),      "⚔  ARMAS  &  ASPECTOS")
-            self.tabs.addTab(self._tab_companions(),   "🐾  COMPAÑEROS")
-            self.tabs.addTab(self._tab_items(),        "🙏  MIRROR  &  KEEPSAKES")
-            self.tabs.addTab(self._tab_progress(),     "🏛  PROGRESO")
+            self.tabs.addTab(self._tab_resources(),      "⚗  RECURSOS")
+            self.tabs.addTab(self._tab_weapons(),         "⚔  ARMAS  &  ASPECTOS")
+            self.tabs.addTab(self._tab_companions(),      "🐾  COMPAÑEROS")
+            self.tabs.addTab(self._tab_items(),           "🙏  MIRROR  &  KEEPSAKES")
+            self.tabs.addTab(self._tab_cosmetics_h1(),   "🏡  COSMÉTICOS")
+            self.tabs.addTab(self._tab_progress(),       "🏛  PROGRESO")
 
     # ── Sections ──────────────────────────────────────────────────────────────
     def _build_title(self):
@@ -1070,6 +1071,87 @@ class HadesEditor(QMainWindow):
         lay.addStretch()
         return scroll
 
+    def _tab_cosmetics_h1(self):
+        scroll, inner = self._scroll_tab()
+        lay = QVBoxLayout(inner)
+        lay.setContentsMargins(24, 20, 24, 24)
+        lay.setSpacing(20)
+
+        hint = QLabel(
+            "✦  Marca los ítems para comprarlos  •  "
+            "Aparecerán en tu sala de inicio como si los hubieras comprado al Contratista"
+        )
+        hint.setWordWrap(True)
+        hint.setStyleSheet(f"color: {TEXT_DIM}; font-size: 11px; padding-bottom: 6px;")
+        lay.addWidget(hint)
+
+        COSMETICS_SECTIONS = [
+            ("🏡  DECORACIÓN DE SALA", [
+                ("Cosmetic_SouthHallTrimGrey",   "Moldura Gris"),
+                ("Cosmetic_SouthHallTrimBrown",  "Moldura Marrón"),
+                ("Cosmetic_SouthHallTrimRed",    "Moldura Roja"),
+                ("Cosmetic_SouthHallTrimPurple", "Moldura Púrpura"),
+                ("Cosmetic_DrapesBlue",          "Cortinas Azules"),
+                ("Cosmetic_DrapesRed",           "Cortinas Rojas"),
+                ("Cosmetic_HouseCandles01",      "Candelabros"),
+                ("Cosmetic_LaurelsRed",          "Laureles Rojos"),
+                ("Cosmetic_NorthHallCouch",      "Sofá (Hall Norte)"),
+                ("Cosmetic_SouthHallFlowers",    "Flores (Hall Sur)"),
+                ("Cosmetic_SouthHallFlowersA",   "Flores Alt. (Hall Sur)"),
+                ("Cosmetic_WallWeaponBident",    "Bidente en la pared"),
+                ("Cosmetic_ClearFur",           "Piel de Cerbero"),
+                ("Cosmetic_MusicPlayer",        "Reproductor de Música"),
+                ("Cosmetic_UISkinDefault",      "Skin UI Defecto"),
+                ("HouseCouch02A",               "Sofá Principal"),
+                ("HouseLyre01",                 "Lira de Orfeo"),
+                ("HousePoster01",               "Póster del Inframundo"),
+                ("HouseRug03B",                 "Alfombra Oscura"),
+                ("HouseWaterBowl01",            "Cuenco de Agua Estigia"),
+            ]),
+            ("🎮  MEJORAS DE GAMEPLAY", [
+                ("BreakableValue1",    "Objetos rompibles I"),
+                ("BreakableValue2",    "Objetos rompibles II"),
+                ("BreakableValue3",    "Objetos rompibles III"),
+                ("ChallengeSwitches1", "Interruptores de combate I"),
+                ("ChallengeSwitches2", "Interruptores de combate II"),
+                ("HealthFountainHeal1", "Fuente curativa I"),
+                ("HealthFountainHeal2", "Fuente curativa II"),
+                ("FishingUnlockItem",  "Caña de pescar de Caronte"),
+                ("QuestLog",           "Registro de misiones"),
+                ("CodexBoonList",      "Lista de pociones del Códex"),
+            ]),
+            ("📖  HISTORIA Y PERSONAJES", [
+                ("OfficeDoorUnlockItem", "Puerta del despacho de Hades"),
+                ("OrpheusUnlockItem",    "Liberar a Orfeo"),
+                ("GhostAdminDesk",       "Mesa administrativa fantasmal"),
+                ("PostBossGiftRack",     "Expositor de regalos (post-jefe)"),
+            ]),
+            ("🗺️  REMANSOS DE PAZ", [
+                ("TartarusReprieve",  "Remanso del Tártaro"),
+                ("AsphodelReprieve",  "Remanso del Asfódelo"),
+                ("ElysiumReprieve",   "Remanso del Elíseo"),
+            ]),
+            ("🎵  MÚSICA", [
+                ("/Music/MusicPlayer/MainThemeMusicPlayer",      "Tema Principal"),
+                ("/Music/MusicPlayer/EurydiceSong1MusicPlayer",  "Canción de Eurídice"),
+                ("/Music/MusicPlayer/MusicExploration4MusicPlayer", "Música de Exploración"),
+            ]),
+        ]
+
+        self._cosmetic_checks = {}
+        for section_title, items in COSMETICS_SECTIONS:
+            grp = self._group(section_title)
+            grid = QGridLayout(grp)
+            grid.setSpacing(8)
+            for i, (key, label) in enumerate(items):
+                chk = self._fancy_check(label, GOLD)
+                self._cosmetic_checks[key] = chk
+                grid.addWidget(chk, i // 3, i % 3)
+            lay.addWidget(grp)
+
+        lay.addStretch()
+        return scroll
+
     # ── Helpers ───────────────────────────────────────────────────────────────
     def _group(self, title):
         g = QGroupBox(title)
@@ -1386,6 +1468,11 @@ class HadesEditor(QMainWindow):
                 val = gift.get(npc_key, {}).get("Value", 0) if isinstance(gift.get(npc_key), dict) else 0
                 chk.setChecked(val > 0)
 
+            # Cosméticos — leer desde CosmeticsAdded
+            cosmetics_added = gs.get("CosmeticsAdded", {})
+            for key, chk in self._cosmetic_checks.items():
+                chk.setChecked(bool(cosmetics_added.get(key, False)))
+
         self._meta["runs"].set_value(sf.runs)
         self._meta["active_meta_points"].set_value(sf.active_meta_points)
         self._meta["active_shrine_points"].set_value(sf.active_shrine_points)
@@ -1495,6 +1582,22 @@ class HadesEditor(QMainWindow):
                     elif gift[npc_key].get("Value", 0) == 0: gift[npc_key]["Value"] = 1.0
                 else:
                     if npc_key in gift and isinstance(gift[npc_key], dict): gift[npc_key]["Value"] = 0.0
+
+            # Cosméticos — escribir en Cosmetics + CosmeticsAdded + CosmeticsViewed
+            cosmetics      = gs.setdefault("Cosmetics", {})
+            cosmetics_add  = gs.setdefault("CosmeticsAdded", {})
+            cosmetics_view = gs.setdefault("CosmeticsViewed", {})
+            for key, chk in self._cosmetic_checks.items():
+                if chk.isChecked():
+                    cosmetics[key]      = "visible"
+                    cosmetics_add[key]  = True
+                    cosmetics_view[key] = True
+                else:
+                    # Si no está marcado, quitar de CosmeticsAdded pero mantener en Cosmetics como pending
+                    cosmetics_add.pop(key, None)
+                    if key in cosmetics:
+                        cosmetics[key] = "pending"
+
 
     def _save(self):
         opts = QFileDialog.Options()
